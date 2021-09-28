@@ -1,0 +1,89 @@
+name: Github Actions for Cloud Resume on AWS
+
+on:
+  push:
+    branches:
+    - main
+    paths:
+    - 'cloud-resume-app/website-counter-lambda/*'
+    - 'cloud-resume-app/cloud-resume-app-sam-template.yaml'
+    - '.github/workflows/backend-workflow.yaml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+                  pip install -r cloud-resume-app/website-counter-lambda/requirements.txt
+
+    - name: Run unittest on Lambda
+      run: |
+        output=$(python cloud-resume-app/website-counter-lambda/test_lambda_function.py)
+        echo "::set-output name=is-test-success::$output"
+      id: get-test-result
+
+    - name: Print result of unittest
+      run: |
+        echo "Is unittest on Lambda successful? -> ${{ steps.get-test-result.outputs.is-test-success }}"
+
+    - name: Abort workflow if unittest on Lambda is not successful
+      if: steps.get-test-result.outputs.is-test-success != 'true'
+      run: |
+        echo "Abort workflow as unittest on Lambda is not successful!"
+        exit 1
+
+    - name: Upload Lambda zip file to S3
+      run: |
+        cd cloud-resume-app/website-counter-lambda 
+        zip website-counter-lambda.zip lambda_function.py requirements.txt
+        cd ..
+        cd ..
+        #aws s3 cp cloud-resume-app/website-counter-lambda/website-counter-lambda.zip s3://$AWS_S3_BUCKET
+        aws s3 sync ./cloud-resume-app/website-counter-lambda/ s3://$AWS_S3_BUCKET --exclude='*' --include='*/website-counter-lambda.zip'
+      env:
+        AWS_S3_BUCKET: ${{ secrets.AWS_LAMBDA_S3_BUCKET }}
+
+    - name: Get Lambda zip file's lastest version ID on S3
+      run: |
+         versionId=$(aws s3api list-object-versions --bucket $AWS_S3_BUCKET --prefix website-counter-lambda.zip --query 'Versions[?IsLatest].[VersionId]' --output text)     
+         echo "::set-output name=lambda-version-id::$versionId"
+      env:
+        AWS_S3_BUCKET: ${{ secrets.AWS_LAMBDA_S3_BUCKET }}
+      id: get-lambda-version-id
+
+    - name: Setup AWS SAM
+      uses: aws-actions/setup-sam@v1
+
+    - name: SAM Validate
+      run: |
+        sam validate --template-file cloud-resume-app/cloud-resume-app-sam-template.yaml
+
+    - name: SAM Build
+      run: |
+        sam build --use-container --template-file cloud-resume-app/cloud-resume-app-sam-template.yaml
+
+    - name: SAM Deploy and Upload to S3
+      run: |
+        sam deploy --template-file .aws-sam/build/template.yaml \
+          --stack-name mark-cloud-resume-app \
+          --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+          --parameter-overrides \
+            ParameterKey=CodeBucketName,ParameterValue=${{ secrets.AWS_LAMBDA_S3_BUCKET }} \
+            ParameterKey=FunctionVersionID,ParameterValue=${{ steps.get-lambda-version-id.outputs.lambda-version-id }}

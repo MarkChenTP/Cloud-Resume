@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Frontend Infrastructure for Cloud Resume'
+
+
+# ---------- Parameters ----------
+Parameters:
+  ResumeName:
+    Type: String
+    Default: mark-cloud-resume
+    Description: Enter the name of the S3 Bucket for Cloud Resume    
+  DomainName:
+    Type: String
+    Default: markchentp.com
+    Description: Enter the name of a personal domain registered with Route53 Registrar
+  DNSRecordName:
+    Type: String
+    Default: www.markchentp.com    
+    Description: Enter a name for the DNS Record for the S3 Bucket Website and the CloudFront Distribution
+  HostedZoneIdValue:
+    Type: String
+    Description: Enter the Id of the HostedZone of the personal domain      
+  CertificateARN:
+    Type: String
+    Description: Enter the ARN of SSL/TLS certificate created from cloud-resume-web-cf-template-ACM.yaml
+
+# ---------- Resources ----------
+Resources:
+  # S3 Bucket for Website
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ResumeName
+      VersioningConfiguration:
+        Status: Enabled
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Id: cloud-resume-bucket-policy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: 'Allow'
+            Action:
+              - 's3:GetObject'
+            Principal:
+              CanonicalUser: !GetAtt WebsiteCDNOriginIdentity.S3CanonicalUserId
+            Resource:
+              - !Sub "arn:aws:s3:::${WebsiteBucket}/*"
+
+  # CloudFront Origin Access Identity for Website
+  WebsiteCDNOriginIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "${ResumeName}-Origin-Access-Identity"
+
+  # CloudFront Distribution for Website
+  WebsiteCDN:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases:
+          - !Sub "*.${DomainName}"
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            Id: !Sub "${WebsiteBucket}-CloudFront-S3-Origin"
+            ConnectionAttempts: 3
+            ConnectionTimeout: 10  #sec
+            OriginShield: 
+              Enabled: false
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${WebsiteCDNOriginIdentity}"
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          Compress: true
+          AllowedMethods:
+            - 'HEAD'
+            - 'GET'
+            - 'OPTIONS'
+          CachedMethods:
+            - 'HEAD'
+            - 'GET'
+            - 'OPTIONS'
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized AWS-managed cache policy
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf  # CORS-S3Origin AWS-managed cache policy
+          TargetOriginId: !Sub "${WebsiteBucket}-CloudFront-S3-Origin"
+          ViewerProtocolPolicy: redirect-to-https
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateARN
+          MinimumProtocolVersion: TLSv1.2_2018
+          SslSupportMethod: sni-only
+        HttpVersion: 'http2'
+        IPV6Enabled: true
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${ResumeName}-CloudFront"
+
+  # DNS Record for Website
+  WebsiteDNS:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneIdValue
+      RecordSets:
+        - Name: !Ref DNSRecordName
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt WebsiteCDN.DomainName
+
+
+# ---------- Outputs ----------
+Outputs:
+  CloudFrontID:
+    Value: !Ref WebsiteCDN
+    Description: CloudFront ID
+  CloudFrontURL:
+    Value: !GetAtt WebsiteCDN.DomainName
+    Description: CloudFront URL for DNS record

@@ -1,0 +1,135 @@
+body {
+  background: #F2F2F2;
+  color: #323232;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+a {
+  color: #236FB2;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.icon {
+  fill: currentColor;
+  height:30px;
+  width: 30px;
+}
+
+ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+li {
+  margin-bottom: 0.25rem;
+}
+
+/* 
+ * Navigation and Content Styling
+ */
+.navi-container {
+  max-height: 360px;
+}
+
+.content-container {
+  max-width: 1080px;
+  margin: auto;
+  padding: 20px;
+  background: white;
+}
+
+.counter {
+  display: inline;
+  color: white;
+  font-size: 1.25rem;    
+  background-color:#007bff;
+}
+
+
+
+/*
+ * Contact Styling
+ */
+img.avatar {
+  width: 130px;
+}
+
+.my-name {
+  font-size: 3rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.my-location {
+  font-size: 1.5rem;
+  font-weight: bold;
+  line-height: 1.2;
+  text-align: center;
+  color: #236FB2;
+}
+
+.my-links {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 50px 10px 50px;
+}
+
+.link-item {
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+}
+
+.link-item svg {
+  margin-right: 6px;
+}
+
+
+/* 
+ *  Section Styling
+ */
+.section-title {
+  font-weight: bold;
+  font-size: 1.5rem;
+  margin-top: 10px;
+  padding-bottom: 10px;
+}
+
+.section-container {
+  border-top: 2px solid lightgrey;
+  margin-bottom: 30px;
+}
+
+.section-container:first-child {
+  border-top: none;
+}
+
+.item-title {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0 10px 0;
+}
+
+.item-primary-name {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.item-secondary-name {
+  font-size: 1.2rem;
+}
+
+.item-date {
+  font-size: 1.2rem;
+}
+
+.item-description {
+  max-width: 864px;
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}

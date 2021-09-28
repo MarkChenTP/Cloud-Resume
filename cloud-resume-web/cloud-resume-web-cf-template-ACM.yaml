@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Public SSL/TLS Certificate for Cloud Resume'
+
+
+# ---------- Parameters ----------
+Parameters:
+  ResumeName:
+    Type: String
+    Default: mark-cloud-resume
+    Description: Enter the name of the S3 Bucket for Cloud Resume    
+  DomainName:
+    Type: String
+    Default: markchentp.com
+    Description: Enter the name of a personal domain registered with Route53 Registrar 
+  HostedZoneIdValue:
+    Type: String
+    Description: Enter the Id of the HostedZone of the personal domain
+    
+# ---------- Resources ----------
+Resources:
+  # SSL/TLS Public Certificate for Website
+  WebsiteCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub "*.${DomainName}"
+      DomainValidationOptions:
+        - DomainName: !Sub "*.${DomainName}"
+          HostedZoneId: !Ref HostedZoneIdValue
+      ValidationMethod: DNS
+      Tags: 
+        - Key: "Name"
+          Value: !Sub "${ResumeName}-certificate-public"
+
+
+# ---------- Outputs ----------
+Outputs:
+  CertificateARN:
+    Value: !Ref WebsiteCertificate
+    Description: 'SSL/TLS Public Certificate ARN'
+
